@@ -1,22 +1,19 @@
-use chrono::{DateTime, FixedOffset};
-use influxdb2::models::Query;
-use influxdb2::{Client, FromDataPoint};
+use chrono::Utc;
+use futures::prelude::*;
+use influxdb2::Client;
+use influxdb2_derive::WriteDataPoint;
 
-#[derive(Debug, FromDataPoint)]
-pub struct StockPrice {
-    ticker: String,
+#[derive(Default, WriteDataPoint)]
+#[measurement = "cpu_load_short"]
+struct CpuLoadShort {
+    #[influxdb(tag)]
+    host: Option<String>,
+    #[influxdb(tag)]
+    region: Option<String>,
+    #[influxdb(field)]
     value: f64,
-    time: DateTime<FixedOffset>,
-}
-
-impl Default for StockPrice {
-    fn default() -> Self {
-        Self {
-            ticker: "".to_string(),
-            value: 0_f64,
-            time: chrono::MIN_DATETIME.with_timezone(&chrono::FixedOffset::east(7 * 3600)),
-        }
-    }
+    #[influxdb(timestamp)]
+    time: i64,
 }
 
 #[tokio::main]
@@ -24,19 +21,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let host = std::env::var("host").unwrap();
     let org = std::env::var("org").unwrap();
     let token = std::env::var("token").unwrap();
+    let bucket = std::env::var("bucket").unwrap();
     let client = Client::new(host, org, token);
 
-    let qs = format!(
-        "from(bucket: \"sandbox\") 
-        |> range(start: -1w)
-        |> filter(fn: (r) => r.ticker == \"{}\") 
-        |> last()
-    ",
-        "AAPL"
-    );
-    let query = Query::new(qs.to_string());
-    let res: Vec<StockPrice> = client.query::<StockPrice>(Some(query)).await?;
-    println!("{:?}", res);
+    let points = vec![
+        CpuLoadShort {
+            host: Some("server01".to_owned()),
+            region: Some("us-west".to_owned()),
+            value: 0.64,
+            time: Utc::now().timestamp_nanos(),
+        },
+        CpuLoadShort {
+            host: Some("server02".to_owned()),
+            region: Some("us-east".to_owned()),
+            value: 0.63,
+            time: Utc::now().timestamp_nanos(),
+        },
+    ];
+
+    client.write(bucket.as_str(), stream::iter(points)).await?;
 
     Ok(())
 }
