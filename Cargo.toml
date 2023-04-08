@@ -1,0 +1,13 @@
+[package]
+name = "influx_cpu"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+influxdb2 = "0.3"
+influxdb2-structmap = "0.2"
+num-traits = "0.2"
+chrono = { version = "0.4.23", features = ["serde"], default-features = false }
+tokio = { version = "1.0", features = ["full"] }
